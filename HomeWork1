@@ -1,0 +1,42 @@
+df1 = spark.read.load('/FileStore/taxi__zone_lookup.csv',
+                    format='com.databricks.spark.csv', 
+                    header='true',
+                    inferSchema='true')
+                    
+df2 = spark.read.load('/FileStore/green_tripdata_2019_01.csv',
+                    format='com.databricks.spark.csv', 
+                    header='true',
+                    inferSchema='true')
+
+df1.createOrReplaceTempView('taxi_zone')
+df2.createOrReplaceTempView('green_trip')
+
+%sql
+SELECT COUNT(*) FROM green_trip
+WHERE lpep_pickup_datetime > '2019-01-15T0:0:0.000+0000'
+  AND lpep_pickup_datetime < '2019-01-15T23:59:59.000+0000'
+  
+%sql
+SELECT date_format(to_timestamp(lpep_pickup_datetime, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), "yyyy-MM-dd") as pickup_date,
+       MAX(trip_distance) as dist
+FROM green_trip
+GROUP BY date_format(to_timestamp(lpep_pickup_datetime, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), "yyyy-MM-dd")
+ORDER BY dist DESC
+LIMIT 1
+
+%sql
+SELECT passenger_count, COUNT(*) FROM green_trip
+WHERE lpep_pickup_datetime >= '2019-01-01T0:0:0.000+0000'
+  AND lpep_pickup_datetime < '2019-01-02T0:0:0.000+0000'
+  AND passenger_count IN ('2','3')
+GROUP BY passenger_count
+ORDER BY passenger_count
+
+%sql
+SELECT 
+       TZ.Zone AS DOZ
+FROM green_trip GT
+JOIN taxi_zone TZ ON GT.DOLocationID = TZ.LocationID
+WHERE GT.PULocationID = 7
+ORDER BY tip_amount DESC
+LIMIT 1
